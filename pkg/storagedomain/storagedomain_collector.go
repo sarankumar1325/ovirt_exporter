@@ -80,14 +80,29 @@ func (c *StorageDomainCollector) collectMetricsForDomain(domain StorageDomain) {
 	d := &domain
 	l := []string{d.Name, string(d.Type), d.Storage.Path}
 
-	up := d.ExternalStatus == "ok"
 	c.cc.RecordMetrics(
-		metric.MustCreate(upDesc, boolToFloat(up), l),
+		metric.MustCreate(upDesc, storageUpValue(d.Status), l),
 		metric.MustCreate(masterDesc, boolToFloat(d.Master), l),
 		metric.MustCreate(availableDesc, float64(d.Available), l),
 		metric.MustCreate(usedDesc, float64(d.Used), l),
 		metric.MustCreate(committedDesc, float64(d.Committed), l),
 	)
+}
+
+// storageUpValue maps a StorageDomainStatus to the ovirt_storage_up metric.
+// Values follow ovirt_host_up: 1 = up, 0 = down, 2 = maintenance, and
+// unattached/detached is 3 so it is not treated as up.
+func storageUpValue(status string) float64 {
+	switch status {
+	case "active":
+		return 1
+	case "maintenance", "preparing_for_maintenance":
+		return 2
+	case "unattached", "detached":
+		return 3
+	default:
+		return 0
+	}
 }
 
 func boolToFloat(b bool) float64 {
